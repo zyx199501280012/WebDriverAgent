@@ -8,6 +8,8 @@
 
 #import "FBW3CActionsSynthesizer.h"
 
+#import "FBPhysicalTouch.h"
+#import "XCPointerEvent+Private.h"
 #import "FBErrorBuilder.h"
 #import "FBElementCache.h"
 #import "FBConfiguration.h"
@@ -212,8 +214,24 @@ static NSString *const FB_KEY_ACTIONS = @"actions";
     }
   }
   if (nil == self.pressure) {
-    XCPointerEventPath *result = [[XCPointerEventPath alloc] initForTouchAtPoint:self.atPosition.screenPoint
+    // Physical touch simulation: inject human-like touch parameters to bypass Turing layer 3
+    FBTouchPhysics physics = [FBPhysicalTouch randomParams];
+    CGSize screenSize = [XCUIScreen mainScreen].bounds.size;
+    CGPoint actualPoint = [FBPhysicalTouch applyOffset:self.atPosition.screenPoint
+                                               physics:physics
+                                            screenSize:screenSize];
+    XCPointerEventPath *result = [[XCPointerEventPath alloc] initForTouchAtPoint:actualPoint
                                                                           offset:FBMillisToSeconds(self.offset)];
+    // Inject radius via the first XCPointerEvent in the path (private API)
+    if ([result respondsToSelector:@selector(pointerEvents)]) {
+      NSArray *events = [result performSelector:@selector(pointerEvents)];
+      for (id evt in events) {
+        if ([evt respondsToSelector:@selector(setMajorRadius:)]) {
+          [evt setValue:@(physics.majorRadius) forKey:@"majorRadius"];
+          [evt setValue:@(physics.minorRadius) forKey:@"minorRadius"];
+        }
+      }
+    }
     return @[result];
   }
 

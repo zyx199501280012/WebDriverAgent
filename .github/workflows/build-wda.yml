@@ -1,0 +1,92 @@
+name: Build WDA (Physical Touch Patch)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Add patch files to Xcode project
+        run: |
+          # 把新文件加入 pbxproj（用 ruby 脚本处理）
+          ruby -e '
+            require "xcodeproj"
+            proj = Xcodeproj::Project.open("WebDriverAgent.xcodeproj")
+            target = proj.targets.find { |t| t.name == "WebDriverAgentLib" }
+            group = proj["WebDriverAgentLib/Utilities"]
+            files = [
+              "WebDriverAgentLib/Utilities/FBPhysicalTouch.h",
+              "WebDriverAgentLib/Utilities/FBPhysicalTouch.m",
+              "WebDriverAgentLib/Utilities/XCPointerEvent+Private.h"
+            ]
+            files.each do |f|
+              next if group.files.any? { |x| x.path == File.basename(f) }
+              ref = group.new_file("../#{f}")
+              if f.end_with?(".m")
+                target.source_build_phase.add_file_reference(ref)
+              end
+            end
+            proj.save
+          ' || echo "xcodeproj gem not found, trying xcodebuild directly"
+
+      - name: Bootstrap
+        run: |
+          cd $GITHUB_WORKSPACE
+          if [ -f "Scripts/bootstrap.sh" ]; then
+            bash Scripts/bootstrap.sh -d
+          fi
+
+      - name: Build WDA for device (ldid sign)
+        run: |
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath /tmp/wda_build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            2>&1 | xcpretty || xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath /tmp/wda_build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            ONLY_ACTIVE_ARCH=NO
+
+      - name: Find and package .app
+        run: |
+          APP=$(find /tmp/wda_build -name "WebDriverAgentRunner-Runner.app" | head -1)
+          echo "Found: $APP"
+          # fake-sign with ldid if available
+          brew install ldid 2>/dev/null || true
+          if command -v ldid &>/dev/null; then
+            ldid -S "$APP/WebDriverAgentRunner" && echo "ldid signed"
+          fi
+          mkdir -p /tmp/wda_output
+          cp -r "$APP" /tmp/wda_output/
+          cd /tmp/wda_output
+          zip -r wda-physical-touch.zip WebDriverAgentRunner-Runner.app
+          echo "APP_PATH=/tmp/wda_output/wda-physical-touch.zip" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wda-physical-touch
+          path: /tmp/wda_output/wda-physical-touch.zip
+          retention-days: 30

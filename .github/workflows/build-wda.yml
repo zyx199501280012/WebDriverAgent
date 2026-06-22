@@ -33,7 +33,7 @@ jobs:
             ]
             files.each do |f|
               next if group.files.any? { |x| x.path == File.basename(f) }
-              ref = group.new_file("../#{f}")
+              ref = group.new_file(File.basename(f))
               if f.end_with?(".m")
                 target.source_build_phase.add_file_reference(ref)
               end

@@ -8,6 +8,7 @@
 
 #import "FBW3CActionsSynthesizer.h"
 
+#import <UIKit/UIKit.h>
 #import "FBPhysicalTouch.h"
 #import "XCPointerEvent+Private.h"
 #import "FBErrorBuilder.h"
@@ -216,7 +217,7 @@ static NSString *const FB_KEY_ACTIONS = @"actions";
   if (nil == self.pressure) {
     // Physical touch simulation: inject human-like touch parameters to bypass Turing layer 3
     FBTouchPhysics physics = [FBPhysicalTouch randomParams];
-    CGSize screenSize = [XCUIScreen mainScreen].bounds.size;
+    CGSize screenSize = [UIScreen mainScreen].bounds.size;
     CGPoint actualPoint = [FBPhysicalTouch applyOffset:self.atPosition.screenPoint
                                                physics:physics
                                             screenSize:screenSize];

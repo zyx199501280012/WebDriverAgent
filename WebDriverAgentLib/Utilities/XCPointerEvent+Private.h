@@ -3,8 +3,9 @@
 // 在 FBPhysicalTouch.m 和 patch 集成点 #import 此文件
 
 // XCPointerEvent / XCSynthesizedEventRecord 是 XCTest 私有类，
-// 不在公开头文件中，使用前向声明即可（运行时通过 KVC 访问）
-@class XCPointerEvent, XCSynthesizedEventRecord;
+// 不在公开头文件中，从 WDA PrivateHeaders 导入
+#import "../../PrivateHeaders/XCTest/XCPointerEvent.h"
+#import "../../PrivateHeaders/XCTest/XCSynthesizedEventRecord.h"
 
 // XCPointerEvent 私有扩展（iOS 15 / Xcode 13.x 验证可用）
 @interface XCPointerEvent (Private)

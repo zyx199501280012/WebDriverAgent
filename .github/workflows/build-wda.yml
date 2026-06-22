@@ -50,6 +50,7 @@ jobs:
 
       - name: Build WDA for device (ldid sign)
         run: |
+          set -o pipefail
           xcodebuild build-for-testing \
             -project WebDriverAgent.xcodeproj \
             -scheme WebDriverAgentRunner \
@@ -59,15 +60,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             ONLY_ACTIVE_ARCH=NO \
-            2>&1 | xcpretty || xcodebuild build-for-testing \
-            -project WebDriverAgent.xcodeproj \
-            -scheme WebDriverAgentRunner \
-            -destination "generic/platform=iOS" \
-            -derivedDataPath /tmp/wda_build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            ONLY_ACTIVE_ARCH=NO
+            2>&1 | xcpretty
 
       - name: Find and package .app
         run: |
